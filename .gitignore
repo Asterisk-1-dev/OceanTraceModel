@@ -21,9 +21,6 @@ ml/checkpoints/*.pt
 ml/checkpoints/*.onnx
 ml/checkpoints/*.tmp_*
 
-# Keep the finalized Deep-SAR model
-!ml/checkpoints/real_deepsar_unet_final.pth
-
 # -------------------------------------------------------
 # Python & PyTorch
 # -------------------------------------------------------
