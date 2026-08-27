@@ -1,0 +1,52 @@
+{
+  "evaluation_timestamp": "2026-08-27T20:09:36Z",
+  "checkpoint": "ml/checkpoints/real_deepsar_unet_v2_best.pth",
+  "dataset": "Refined Deep-SAR (SOS) Zenodo 15298010",
+  "results": {
+    "palsar_test_set": {
+      "subset": "PALSAR Test Set",
+      "sample_count": 776,
+      "metrics": {
+        "mean_iou_percentage": 74.8,
+        "dice_similarity_f1": 0.8558,
+        "precision": 0.8531,
+        "recall": 0.8586,
+        "pixel_accuracy_percentage": 94.82
+      },
+      "performance": {
+        "avg_inference_latency_ms": 1.44,
+        "device": "cuda"
+      }
+    },
+    "sentinel_test_set": {
+      "subset": "Sentinel-1 Test Set",
+      "sample_count": 839,
+      "metrics": {
+        "mean_iou_percentage": 77.08,
+        "dice_similarity_f1": 0.8706,
+        "precision": 0.8288,
+        "recall": 0.9167,
+        "pixel_accuracy_percentage": 90.33
+      },
+      "performance": {
+        "avg_inference_latency_ms": 0.43,
+        "device": "cuda"
+      }
+    },
+    "combined_test_set": {
+      "subset": "Combined Test Set",
+      "sample_count": 1615,
+      "metrics": {
+        "mean_iou_percentage": 76.37,
+        "dice_similarity_f1": 0.866,
+        "precision": 0.8361,
+        "recall": 0.8982,
+        "pixel_accuracy_percentage": 92.48
+      },
+      "performance": {
+        "avg_inference_latency_ms": 0.3,
+        "device": "cuda"
+      }
+    }
+  }
+}
