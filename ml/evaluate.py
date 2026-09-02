@@ -214,6 +214,124 @@ def evaluate_real_deepsar_test_set(
     return report
 
 
+def evaluate_v3_dualpol_val_set(
+    checkpoint_path="ml/checkpoints/v3_dualpol_best.pth",
+    model_name="deeplabv3plus",
+    in_channels=2,
+    val_samples=None,
+    out_file="ml/results/v3_dualpol_val_evaluation_report.json"
+):
+    """
+    Evaluates trained V3 dual-polarization model against validation samples,
+    computing overall and category-stratified metrics (Oil Spill vs No-Oil vs Lookalike).
+    """
+    from ml.dataset import DualPolSARSegmentationDataset
+    os.makedirs(os.path.dirname(out_file), exist_ok=True)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    print(f"\n========================================================")
+    print(f" EVALUATING V3 DUAL-POL MODEL ({model_name.upper()}) on {device}")
+    print(f" Checkpoint: {checkpoint_path}")
+    print(f"========================================================")
+
+    model = get_segmentation_model(model_name=model_name, in_channels=in_channels, num_classes=1).to(device)
+    checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+    state_dict = checkpoint["state_dict"] if "state_dict" in checkpoint else checkpoint["model_state"]
+    model.load_state_dict(state_dict)
+    model.eval()
+
+    loader = DataLoader(DualPolSARSegmentationDataset(val_samples, is_train=False, add_diff_channel=(in_channels == 3)), batch_size=8, shuffle=False)
+
+    total_tp = 0
+    total_fp = 0
+    total_fn = 0
+    total_tn = 0
+    total_lookalike_pixels = 0
+    false_alarm_lookalike_pixels = 0
+    inference_times = []
+
+    with torch.no_grad():
+        for batch in loader:
+            images = batch["image"].to(device)
+            masks = batch["mask"].to(device)
+            categories = batch["category"]
+
+            t0 = time.time()
+            logits = model(images)
+            t1 = time.time()
+            inference_times.append((t1 - t0) / images.size(0))
+
+            probs = torch.sigmoid(logits)
+            preds = (probs > 0.5).float()
+
+            preds_np = preds.cpu().numpy().astype(bool)[:, 0]
+            masks_np = masks.cpu().numpy().astype(bool)[:, 0]
+
+            for i in range(images.size(0)):
+                p = preds_np[i]
+                m = masks_np[i]
+                cat = categories[i]
+
+                tp = np.logical_and(p, m).sum()
+                fp = np.logical_and(p, np.logical_not(m)).sum()
+                fn = np.logical_and(np.logical_not(p), m).sum()
+                tn = np.logical_and(np.logical_not(p), np.logical_not(m)).sum()
+
+                total_tp += tp
+                total_fp += fp
+                total_fn += fn
+                total_tn += tn
+
+                if cat == "lookalike":
+                    total_lookalike_pixels += p.size
+                    false_alarm_lookalike_pixels += p.sum()
+
+    eps = 1e-7
+    iou = (total_tp + eps) / (total_tp + total_fp + total_fn + eps)
+    dice = (2.0 * total_tp + eps) / (2.0 * total_tp + total_fp + total_fn + eps)
+    precision = (total_tp + eps) / (total_tp + total_fp + eps)
+    recall = (total_tp + eps) / (total_tp + total_fn + eps)
+    accuracy = (total_tp + total_tn) / (total_tp + total_fp + total_fn + total_tn + eps)
+    lookalike_fpr = (false_alarm_lookalike_pixels + eps) / (total_lookalike_pixels + eps)
+    avg_latency = np.mean(inference_times) * 1000 if inference_times else 0.0
+
+    report = {
+        "evaluation_timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "checkpoint": checkpoint_path,
+        "model_name": model_name,
+        "validation_samples_count": len(val_samples) if val_samples else 0,
+        "metrics": {
+            "mean_iou_percentage": round(float(iou) * 100, 2),
+            "dice_similarity_f1": round(float(dice), 4),
+            "precision": round(float(precision), 4),
+            "recall": round(float(recall), 4),
+            "pixel_accuracy_percentage": round(float(accuracy) * 100, 2),
+            "lookalike_false_positive_rate": round(float(lookalike_fpr), 6)
+        },
+        "performance": {
+            "avg_inference_latency_ms": round(float(avg_latency), 2),
+            "device": str(device)
+        }
+    }
+
+    print(f"\n========================================================")
+    print(f" VALIDATION EVALUATION RESULTS")
+    print(f"========================================================")
+    print(f" -> Mean IoU:          {report['metrics']['mean_iou_percentage']}%")
+    print(f" -> Dice / F1 Score:   {report['metrics']['dice_similarity_f1']}")
+    print(f" -> Precision:         {report['metrics']['precision']}")
+    print(f" -> Recall:            {report['metrics']['recall']}")
+    print(f" -> Pixel Accuracy:    {report['metrics']['pixel_accuracy_percentage']}%")
+    print(f" -> Lookalike FPR:     {report['metrics']['lookalike_false_positive_rate']}")
+    print(f" -> Latency per Patch: {report['performance']['avg_inference_latency_ms']} ms")
+
+    with open(out_file, "w") as f:
+        json.dump(report, f, indent=2)
+
+    print(f"\nReport saved to: {out_file}")
+    return report
+
+
 if __name__ == "__main__":
     ckpt = "ml/checkpoints/real_deepsar_unet_v2_best.pth"
     if os.path.exists(ckpt):
@@ -222,5 +340,6 @@ if __name__ == "__main__":
         evaluate_real_deepsar_test_set(checkpoint_path="ml/checkpoints/real_deepsar_unet_best.pth")
     else:
         print("No real Deep-SAR checkpoint found to evaluate.")
+
 
 

@@ -543,6 +543,193 @@ def run_training_pipeline(num_scenes=40, tiles_per_scene=25, tile_size=256, epoc
     return deeplab_model, test_samples
 
 
+def train_v3_dualpol_pipeline(
+    model_name="deeplabv3plus",
+    train_loader=None,
+    val_loader=None,
+    device=None,
+    total_epochs=40,
+    lr=3e-4,
+    in_channels=2,
+    best_checkpoint_path="ml/checkpoints/v3_dualpol_best.pth",
+    latest_checkpoint_path="ml/checkpoints/v3_dualpol_latest.pth",
+    log_json_path="ml/results/v3_dualpol_training_log.json",
+    patience=10
+):
+    """
+    Complete training pipeline for OceanTrace V3 Dual-Polarization (VV/VH) SAR dataset.
+    Features:
+    - Mixed precision (torch.amp) for acceleration and lower memory usage
+    - Compound Focal + Dice loss to handle extreme class imbalance & lookalike false alarms
+    - CosineAnnealingLR scheduler with AdamW
+    - Atomic checkpointing for crash-safe resumption
+    - Early stopping on validation IoU
+    """
+    print(f"\n========================================================")
+    print(f" OCEATRACE V3: DUAL-POL TRAINING ({model_name.upper()}) on {device}")
+    print(f" Target Epochs: {total_epochs} | In Channels: {in_channels} | Loss: Compound Focal+Dice")
+    print(f" Best Checkpoint:   {best_checkpoint_path}")
+    print(f" Latest Checkpoint: {latest_checkpoint_path}")
+    print(f" Log File:          {log_json_path}")
+    print(f"========================================================")
+
+    os.makedirs(os.path.dirname(best_checkpoint_path), exist_ok=True)
+    os.makedirs(os.path.dirname(log_json_path), exist_ok=True)
+
+    model = get_segmentation_model(model_name=model_name, in_channels=in_channels, num_classes=1).to(device)
+    criterion = CompoundOilSpillLoss(focal_weight=0.5, dice_weight=0.5)
+    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=total_epochs, eta_min=1e-6)
+
+    use_amp = (device.type == 'cuda')
+    scaler = torch.amp.GradScaler('cuda', enabled=use_amp)
+
+    start_epoch = 1
+    best_val_iou = 0.0
+    best_val_dice = 0.0
+    epochs_without_improvement = 0
+    training_time_accumulated = 0.0
+
+    history = {
+        "model_name": model_name,
+        "in_channels": in_channels,
+        "epochs": [],
+        "train_loss": [],
+        "val_loss": [],
+        "val_iou": [],
+        "val_dice": [],
+        "best_val_iou": 0.0,
+        "best_val_dice": 0.0,
+        "training_time_seconds": 0.0
+    }
+
+    # Resume if checkpoint exists
+    if os.path.exists(latest_checkpoint_path):
+        print(f"\n[RESUME DETECTED] Found existing checkpoint at: {latest_checkpoint_path}")
+        try:
+            checkpoint = torch.load(latest_checkpoint_path, map_location=device, weights_only=False)
+            model.load_state_dict(checkpoint["model_state"])
+            optimizer.load_state_dict(checkpoint["optimizer_state"])
+            scheduler.load_state_dict(checkpoint["scheduler_state"])
+            if use_amp and "scaler_state" in checkpoint and checkpoint["scaler_state"] is not None:
+                scaler.load_state_dict(checkpoint["scaler_state"])
+            
+            start_epoch = checkpoint["epoch"] + 1
+            best_val_iou = checkpoint.get("best_val_iou", 0.0)
+            best_val_dice = checkpoint.get("best_val_dice", 0.0)
+            history = checkpoint.get("history", history)
+            training_time_accumulated = history.get("training_time_seconds", 0.0)
+            print(f" -> Resuming from Epoch {start_epoch}/{total_epochs} (Best Val IoU so far: {best_val_iou:.4f})")
+        except Exception as e:
+            print(f" [WARNING] Error reading checkpoint ({e}). Starting fresh.")
+            start_epoch = 1
+
+    for epoch in range(start_epoch, total_epochs + 1):
+        epoch_start = time.time()
+        model.train()
+        running_train_loss = 0.0
+
+        for batch in train_loader:
+            images = batch["image"].to(device)
+            masks = batch["mask"].to(device)
+
+            optimizer.zero_grad()
+            with torch.amp.autocast('cuda', enabled=use_amp):
+                logits = model(images)
+                loss = criterion(logits, masks)
+
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+
+            running_train_loss += loss.item()
+
+        scheduler.step()
+        avg_train_loss = running_train_loss / max(1, len(train_loader))
+
+        # Validation
+        model.eval()
+        running_val_loss = 0.0
+        val_ious = []
+        val_dices = []
+
+        with torch.no_grad():
+            for batch in val_loader:
+                images = batch["image"].to(device)
+                masks = batch["mask"].to(device)
+
+                with torch.amp.autocast('cuda', enabled=use_amp):
+                    logits = model(images)
+                    loss = criterion(logits, masks)
+
+                running_val_loss += loss.item()
+                iou, dice = compute_batch_iou_dice(logits, masks)
+                val_ious.append(iou)
+                val_dices.append(dice)
+
+        avg_val_loss = running_val_loss / max(1, len(val_loader))
+        avg_val_iou = sum(val_ious) / max(1, len(val_ious))
+        avg_val_dice = sum(val_dices) / max(1, len(val_dices))
+
+        epoch_elapsed = time.time() - epoch_start
+        training_time_accumulated += epoch_elapsed
+
+        history["epochs"].append(epoch)
+        history["train_loss"].append(round(avg_train_loss, 4))
+        history["val_loss"].append(round(avg_val_loss, 4))
+        history["val_iou"].append(round(avg_val_iou, 4))
+        history["val_dice"].append(round(avg_val_dice, 4))
+        history["training_time_seconds"] = round(training_time_accumulated, 2)
+
+        print(f"Epoch [{epoch:02d}/{total_epochs:02d}] - {epoch_elapsed:.1f}s | Train Loss: {avg_train_loss:.4f} | Val Loss: {avg_val_loss:.4f} | Val IoU: {avg_val_iou:.4f} | Val Dice: {avg_val_dice:.4f}")
+
+        # Best checkpoint
+        if avg_val_iou > best_val_iou:
+            best_val_iou = avg_val_iou
+            best_val_dice = avg_val_dice
+            history["best_val_iou"] = round(best_val_iou, 4)
+            history["best_val_dice"] = round(best_val_dice, 4)
+            epochs_without_improvement = 0
+
+            atomic_torch_save({
+                "epoch": epoch,
+                "model_name": model_name,
+                "in_channels": in_channels,
+                "state_dict": model.state_dict(),
+                "val_iou": avg_val_iou,
+                "val_dice": avg_val_dice,
+                "history": history
+            }, best_checkpoint_path)
+            print(f"  --> [*] Best model saved! (Val IoU: {best_val_iou:.4f})")
+        else:
+            epochs_without_improvement += 1
+
+        # Latest checkpoint
+        atomic_torch_save({
+            "epoch": epoch,
+            "model_name": model_name,
+            "in_channels": in_channels,
+            "model_state": model.state_dict(),
+            "optimizer_state": optimizer.state_dict(),
+            "scheduler_state": scheduler.state_dict(),
+            "scaler_state": scaler.state_dict() if use_amp else None,
+            "best_val_iou": best_val_iou,
+            "best_val_dice": best_val_dice,
+            "history": history
+        }, latest_checkpoint_path)
+
+        with open(log_json_path, "w") as f:
+            json.dump(history, f, indent=2)
+
+        if epochs_without_improvement >= patience:
+            print(f"\n[EARLY STOPPING] No improvement in validation IoU for {patience} consecutive epochs. Stopping.")
+            break
+
+    print(f"\n[TRAINING COMPLETE] Best Validation IoU: {best_val_iou:.4f} | Best Dice: {best_val_dice:.4f}")
+    return model, history
+
+
 if __name__ == "__main__":
     run_real_deepsar_training()
+
 

@@ -55,6 +55,31 @@ class BCEDiceLoss(nn.Module):
         return self.bce_weight * self.bce(logits, targets) + self.dice_weight * self.dice(logits, targets)
 
 
+class FocalTverskyLoss(nn.Module):
+    """
+    Asymmetric Focal-Tversky Loss designed to optimize oil spill recall (alpha > beta)
+    while punishing hard lookalike false alarms via the focal modulating factor gamma.
+    """
+    def __init__(self, alpha=0.7, beta=0.3, gamma=1.33, smooth=1.0):
+        super(FocalTverskyLoss, self).__init__()
+        self.alpha = alpha
+        self.beta = beta
+        self.gamma = gamma
+        self.smooth = smooth
+
+    def forward(self, logits, targets):
+        probs = torch.sigmoid(logits).view(-1)
+        targets = targets.view(-1)
+
+        tp = (probs * targets).sum()
+        fp = (probs * (1.0 - targets)).sum()
+        fn = ((1.0 - probs) * targets).sum()
+
+        tversky = (tp + self.smooth) / (tp + self.alpha * fn + self.beta * fp + self.smooth)
+        focal_tversky = torch.pow(1.0 - tversky, self.gamma)
+        return focal_tversky
+
+
 class CompoundOilSpillLoss(nn.Module):
     """
     Hybrid Focal + Dice loss recommended in ADR-007.
