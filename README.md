@@ -250,24 +250,24 @@ The final deployment checkpoint, threshold, and optional test-time augmentation 
 
 ---
 
-## Reproducibility
+## Reproducibility & Deployment Weights
 
-### E21 Best-IoU Checkpoint
+### Primary Deployed Checkpoint (V6 E21 Final)
 
 ```text
-oceantrace_v6_dualpol_deeplabv3plus_best_iou.pth
-Epoch: 21
-SHA256:
-4de684fa85daf05fa9d5b330103b4e3536450ccaa9d65724f889225c13eef635
+Location: V6_E21_FINAL/oceantrace_v6_E21_final.pth
+Original: oceantrace_v6_dualpol_deeplabv3plus_best_iou.pth
+Epoch:    21
+SHA256:   4de684fa85daf05fa9d5b330103b4e3536450ccaa9d65724f889225c13eef635
+Size:     9.12 MB (9,567,755 bytes)
 ```
 
-### E25 Best-Operational Checkpoint
+### Reference Operational Checkpoint (V6 E25)
 
 ```text
-oceantrace_v6_dualpol_deeplabv3plus_best_operational.pth
-Epoch: 25
-SHA256:
-ff840f0e44a40d2f4656f56f5f9234069964cd71f75725c0e3cb9b544bce5cac
+Original: oceantrace_v6_dualpol_deeplabv3plus_best_operational.pth
+Epoch:    25
+SHA256:   ff840f0e44a40d2f4656f56f5f9234069964cd71f75725c0e3cb9b544bce5cac
 ```
 
 ---
