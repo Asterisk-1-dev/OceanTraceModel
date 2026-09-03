@@ -75,3 +75,7 @@ __MACOSX/
 *.pt
 *.onnx
 !V6_E21_FINAL/oceantrace_v6_E21_final.pth
+
+# Local Development & AI Agent Documentation
+.ai/
+.agents/
