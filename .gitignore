@@ -1,117 +1,69 @@
 # =======================================================
-# OceanTrace: Complete .gitignore
-# Node + Python/PyTorch + Data
+# OceanTrace: Root .gitignore
 # =======================================================
 
-# -------------------------------------------------------
-# Large Datasets & Archives
-# -------------------------------------------------------
-data/
-*.zip
-*.tar
-*.tar.gz
-*.7z
-__MACOSX/
-
-# -------------------------------------------------------
-# ML Checkpoints & Intermediate Weights
-# -------------------------------------------------------
-ml/checkpoints/
-*.pth
-*.pt
-*.onnx
-*.tmp_*
-!V6_E21_FINAL/oceantrace_v6_E21_final.pth
-
-# -------------------------------------------------------
-# Temporary Kaggle Experiment Outputs & Benchmarks
-# -------------------------------------------------------
-kaggle_*/
-
-# -------------------------------------------------------
-# Python & PyTorch
-# -------------------------------------------------------
+# Python bytecode & test caches
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-.Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# -------------------------------------------------------
 # Virtual Environments
-# -------------------------------------------------------
-venv/
 .venv/
+venv/
 env/
-.env/
 ENV/
 env.bak/
 venv.bak/
 
-# -------------------------------------------------------
-# Jupyter Notebook
-# -------------------------------------------------------
-.ipynb_checkpoints/
-
-# -------------------------------------------------------
-# Node / Frontend (React + Vite)
-# -------------------------------------------------------
-node_modules/
-dist/
-dist-ssr/
-
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-# -------------------------------------------------------
 # Environment Variables & Secrets
-# -------------------------------------------------------
 .env
-.env*.local
+.env.*
+!.env.example
 *.env
 
-# -------------------------------------------------------
-# IDE & System Files
-# -------------------------------------------------------
+# Node / Frontend Dependencies & Build Outputs
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+dist/
+dist-ssr/
+.vite/
+
+# Operating System & IDE Files
 .DS_Store
 Thumbs.db
-
+.vscode/
 .idea/
-.vscode/*
-!.vscode/extensions.json
-!.vscode/settings.json
-
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
 
-# -------------------------------------------------------
-# Agent & Temporary Logs
-# -------------------------------------------------------
-.agents/
-.ai/
-logs/
+# Temporary & Log Files
 *.log
+*.tmp
+*.temp
+
+# Large Datasets & Archives
+data/*
+!data/ais_scenarios/
+*.zip
+*.tar
+*.tar.gz
+*.7z
+__MACOSX/
+
+# Model Checkpoints (Ignore intermediate weights, keep frozen V6 E21 checkpoint)
+*.pth
+*.pt
+*.onnx
+!V6_E21_FINAL/oceantrace_v6_E21_final.pth

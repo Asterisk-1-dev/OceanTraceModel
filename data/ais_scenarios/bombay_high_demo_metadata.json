@@ -1,0 +1,39 @@
+{
+  "scenario_id": "bombay_high_demo_01",
+  "data_provenance": "SYNTHETIC_AIS",
+  "is_synthetic": true,
+  "description": "Deterministic synthetic vessel tracks around Bombay High offshore field designed for offline development and SIH demonstration.",
+  "geographic_region": {
+    "name": "Bombay High Offshore Oil Field, Arabian Sea",
+    "bounding_box": [19.10, 19.85, 71.00, 71.85]
+  },
+  "time_window": {
+    "start_utc": "2026-09-01T00:00:00Z",
+    "end_utc": "2026-09-02T00:00:00Z",
+    "duration_hours": 24.0
+  },
+  "vessels": [
+    {
+      "mmsi": "999000001",
+      "name": "SYNTHETIC TANKER ALPHA",
+      "imo": "9990001",
+      "vessel_type": "Crude Oil Tanker",
+      "behavior_role": "Primary test candidate crossing near Bombay High platform at t0 - 12h"
+    },
+    {
+      "mmsi": "999000002",
+      "name": "SYNTHETIC CARGO BRAVO",
+      "imo": "9990002",
+      "vessel_type": "Container Ship",
+      "behavior_role": "Background transit vessel passing 35 km East of corridor"
+    },
+    {
+      "mmsi": "999000003",
+      "name": "SYNTHETIC FISHING CHARLIE",
+      "imo": null,
+      "vessel_type": "Fishing",
+      "behavior_role": "Sparse reporting fishing vessel operating North of corridor"
+    }
+  ],
+  "disclaimer": "CRITICAL: This dataset contains SYNTHETIC AIS TEST DATA ONLY. It does NOT assert or imply real-world vessel identity, operational discharge, or environmental liability."
+}
