@@ -23,6 +23,8 @@ venv.bak/
 
 # Environment Variables & Secrets
 .env
+.env.local
+.env.*.local
 .env.*
 !.env.example
 *.env
@@ -37,18 +39,24 @@ dist/
 dist-ssr/
 .vite/
 
-# Operating System & IDE Files
+# Operating System & IDE / Editor Files
 .DS_Store
 Thumbs.db
-.vscode/
+desktop.ini
 .idea/
+.vscode/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*.swp
+*.swo
+*~
+*.bak
 
 # Temporary & Log Files
+logs/
 *.log
 *.tmp
 *.temp
